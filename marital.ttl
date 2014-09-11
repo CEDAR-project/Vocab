@@ -7,6 +7,7 @@
 @prefix void:    <http://rdfs.org/ns/void#> .
 @prefix vcard:   <http://www.w3.org/2006/vcard/ns#> .
 @prefix sdmx:    <http://purl.org/linked-data/sdmx#> .
+@prefix cedar-maritalstatus: <http://bit.ly/cedar-maritalstatus#> .
 @prefix sdmx-concept:    <http://purl.org/linked-data/sdmx/2009/concept#> .
 @prefix sdmx-dimension:  <http://purl.org/linked-data/sdmx/2009/dimension#> .
 @prefix sdmx-attribute:  <http://purl.org/linked-data/sdmx/2009/attribute#> .
@@ -17,30 +18,41 @@
 @prefix dcterms:         <http://purl.org/dc/terms/>.
 @prefix qb:              <http://purl.org/linked-data/cube#> .
 
-sdmx-code:sex a skos:ConceptScheme;
-    skos:prefLabel "Code list for Sex (SEX) - codelist scheme"@en;
-    rdfs:label "Code list for Sex (SEX) - codelist scheme"@en;
-    skos:notation "CL_SEX";
-    skos:note "This  code list provides the gender."@en;
-    skos:definition <http://sdmx.org/wp-content/uploads/2009/01/02_sdmx_cog_annex_2_cl_2009.pdf> ;
-    rdfs:seeAlso sdmx-code:Sex ;
-    sdmx-code:sex skos:hasTopConcept sdmx-code:sex-F ;
-    sdmx-code:sex skos:hasTopConcept sdmx-code:sex-M .
+cedar-maritalstatus:maritalstatus a skos:ConceptScheme;
+    skos:prefLabel "Code list for marital status - codelist scheme"@en;
+    rdfs:label "Code list for marital status - codelist scheme"@en;
+    skos:notation "CL_MARITALSTATUS";
+    skos:note "This code list provides the marital status of a target census group"@en;
+    skos:definition <http://wcts.whitman.edu/ais/core/VAL.MARITAL.STATUSES.htm> ;
+    rdfs:seeAlso cedar-maritalstatus:MaritalStatus ;
+    skos:hasTopConcept cedar-maritalstatus:married ;
+    skos:hasTopConcept cedar-maritalstatus:single .
 
-sdmx-code:Sex a rdfs:Class, owl:Class;
+cedar-maritalstatus:MaritalStatus a rdfs:Class, owl:Class;
     rdfs:subClassOf skos:Concept ;
-    rdfs:label "Code list for Sex (SEX) - codelist class"@en;
-    rdfs:comment "This  code list provides the gender."@en;
-    rdfs:seeAlso sdmx-code:sex .
+    rdfs:label "Code list for marital status - codelist class"@en;
+    rdfs:comment "A marital status defines the relationship between two persons"@en;
+    rdfs:seeAlso cedar-maritalstatus:maritalstatus .
 
-sdmx-code:sex-F a skos:Concept, sdmx-code:Sex;
-    skos:topConceptOf sdmx-code:sex;
-    skos:prefLabel "Female"@en ;
-    skos:notation "F" ;
-    skos:inScheme sdmx-code:sex .
+cedar-maritalstatus:married a skos:Concept, sdmx-code:Sex;
+    skos:topConceptOf cedar-maritalstatus:maritalstatus;
+    skos:prefLabel "Married"@en ;
+    skos:prefLabel "Gehuwd"@nl ;
+    skos:notation "M" ;
+    skos:inScheme cedar-maritalstatus:maritalstatus .
 
-sdmx-code:sex-M a skos:Concept, sdmx-code:Sex;
-    skos:topConceptOf sdmx-code:sex;
-    skos:prefLabel "Male"@en ;
-    skos:notation "M" ; 
-    skos:inScheme sdmx-code:sex .
+cedar-maritalstatus:single a skos:Concept, sdmx-code:Sex;
+    skos:topConceptOf cedar-maritalstatus:maritalstatus;
+    skos:prefLabel "Single"@en ;
+    skos:prefLabel "Ongehuwd"@nl ;
+    skos:notation "S" ; 
+    skos:narrower cedar-maritalstatus:widow ; 
+    skos:inScheme cedar-maritalstatus:maritalstatus .
+    
+cedar-maritalstatus:widow a skos:Concept, sdmx-code:Sex;
+	skos:broader cedar-maritalstatus:single ;
+    skos:prefLabel "Widow"@en ;
+    skos:prefLabel "Weduwe"@nl ;
+    skos:notation "W" ; 
+    skos:inScheme cedar-maritalstatus:maritalstatus .
+    
