@@ -11,7 +11,13 @@
 @prefix qb:      <http://purl.org/linked-data/cube#> .
 @prefix cedar-maritalstatus: <http://bit.ly/cedar-maritalstatus#> .
 
-cedar-maritalstatus:maritalstatus a skos:ConceptScheme;
+cedar-maritalstatus:maritalStatus a qb:DimensionProperty, rdf:Property ;
+	rdfs:range cedar-maritalstatus:MaritalStatus;
+	qb:concept cedar-maritalstatus:MaritalStatus;
+	rdfs:label "Marital status"@en ;
+	rdfs:comment "A person's marital status indicates whether the person is married"@en ;
+    
+cedar-maritalstatus:maritalStatusScheme a skos:ConceptScheme;
     skos:prefLabel "Code list for marital status - codelist scheme"@en;
     rdfs:label "Code list for marital status - codelist scheme"@en;
     skos:notation "CL_MARITALSTATUS";
@@ -28,11 +34,11 @@ cedar-maritalstatus:MaritalStatus a rdfs:Class, owl:Class;
     rdfs:seeAlso cedar-maritalstatus:maritalstatus .
 
 cedar-maritalstatus:married a skos:Concept, cedar-maritalstatus:MaritalStatus;
-    skos:topConceptOf cedar-maritalstatus:maritalstatus;
+    skos:topConceptOf cedar-maritalstatus:maritalStatusScheme;
     skos:prefLabel "Married"@en ;
     skos:prefLabel "Gehuwd"@nl ;
     skos:notation "M" ;
-    skos:inScheme cedar-maritalstatus:maritalstatus .
+    skos:inScheme cedar-maritalstatus:maritalStatusScheme .
 
 cedar-maritalstatus:single a skos:Concept, cedar-maritalstatus:MaritalStatus;
     skos:topConceptOf cedar-maritalstatus:maritalstatus;
@@ -40,12 +46,12 @@ cedar-maritalstatus:single a skos:Concept, cedar-maritalstatus:MaritalStatus;
     skos:prefLabel "Ongehuwd"@nl ;
     skos:notation "S" ; 
     skos:narrower cedar-maritalstatus:widow ; 
-    skos:inScheme cedar-maritalstatus:maritalstatus .
+    skos:inScheme cedar-maritalstatus:maritalStatusScheme .
     
 cedar-maritalstatus:widow a skos:Concept, cedar-maritalstatus:MaritalStatus;
     skos:broader cedar-maritalstatus:single ;
     skos:prefLabel "Widow"@en ;
     skos:prefLabel "Weduwe"@nl ;
     skos:notation "W" ; 
-    skos:inScheme cedar-maritalstatus:maritalstatus .
+    skos:inScheme cedar-maritalstatus:maritalStatusScheme .
     
