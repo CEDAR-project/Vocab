@@ -8,7 +8,6 @@ Uses Python3 to avoid issues with UTF-8 encoding
 # coding: utf-8
 import requests
 import re
-import sys
 import logging
 import sqlite3
 from bs4 import BeautifulSoup
@@ -18,16 +17,17 @@ from rdflib.namespace import RDF, DCTERMS, RDFS
 from rdflib.term import Literal
 
 ROOT = "http://historyofwork.iisg.nl/"
-HISCO_TREE = "major.php"
-OCCUPATIONAL_TITLES = "list_hiswi.php"
+HISCO_TREE = "/major.php"
+OCCUPATIONAL_TITLES = "/list_hiswi.php"
 LANG_MAP = {'French':'fr', 'German':'de', 'Dutch':'nl', 'Swedish':'sv',
             'Portugese':'pt', 'English':'en', 'Norwegian':'no', 'Spanish':'es',
-            'Catalan':'ct', 'Danish':'da', 'Greek': 'gr'}
+            'Catalan':'ct', 'Danish':'da', 'Greek': 'gr', 'DA' : 'da'}
 
+HISCO = Namespace("http://bit.ly/cedar-hisco#")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
-HISCO = Namespace("http://example.org#")
 SDMX_DIMENSION = Namespace("http://purl.org/linked-data/sdmx/2009/dimension#")
 SDMX_CODE = Namespace("http://purl.org/linked-data/sdmx/2009/code#")
+QB = Namespace("http://purl.org/linked-data/cube#")
 
 log = logging.getLogger("HISCO2RDF")
 logging.basicConfig(format='%(asctime)s [%(name)s:%(levelname)s] %(message)s')
@@ -46,6 +46,7 @@ class Hisco2RDF():
         self.graph.namespace_manager.bind('dcterms', DCTERMS)
         self.graph.namespace_manager.bind('sdmx-dimension', SDMX_DIMENSION)
         self.graph.namespace_manager.bind('sdmx-code', SDMX_CODE)
+        self.graph.namespace_manager.bind('qb', QB)
         
         # SQLite DB for the cache
         self.cache = sqlite3.connect('cache.db')
@@ -57,6 +58,8 @@ class Hisco2RDF():
         self.cache.close()
         
     def get_page(self, url):
+        #log.debug("Load %s" % url)
+        
         c = self.cache.cursor()
         c.execute("SELECT * FROM page WHERE url = ?", (url,))
         res = c.fetchone()
@@ -69,10 +72,19 @@ class Hisco2RDF():
             (_, doc) = res            
         return BeautifulSoup(doc)
 
-    def get_output(self):
+    def save_output(self):
+        # Add more things needed for DataCubes
+        dimprop = HISCO['occupation']
+        self.graph.add((dimprop, RDF.type, QB['DimensionProperty']))
+        self.graph.add((dimprop, RDFS.range, SKOS.Collection))
+        self.graph.add((dimprop, QB['Concept'], SKOS.Collection))
+        self.graph.add((dimprop, RDFS.label, Literal('Occupation code', lang='en')))
+        self.graph.add((dimprop, RDFS.comment, Literal('The HISCO group of the occupation', lang='en')))
+        
+        
         # Print to the screen
-        outfile = sys.stdout.buffer
-        self.graph.serialize(destination=outfile, format='n3')
+        #outfile = sys.stdout.buffer
+        #self.graph.serialize(destination=outfile, format='n3')
         
         # Save to the file
         outfile = open('../hisco.ttl', "wb")
@@ -118,61 +130,52 @@ class Hisco2RDF():
 
         # Add the groups to the graph
         for group in major_groups:
-            major_group_uri = HISCO['scheme-%s' % group['code']]
+            major_group_uri = self._get_group_uri(group['code'])
             self.graph.add((major_group_uri, RDF.type, SKOS['ConceptScheme']))
             self.graph.add((major_group_uri, DCTERMS.title, Literal(group['title'])))
             self.graph.add((major_group_uri, DCTERMS.description, Literal(group['description'])))
             
         # Now move onto the minor groups following the links
         for major_group in major_groups:
-            major_group_uri = HISCO['scheme-%s' % major_group['code']]
-            for link in major_group['links']:
-                log.info("Parse %s" % link)
-        
+            major_group_uri = self._get_group_uri(major_group['code'])
+            
+            for minor_link in major_group['links']:
                 # Look for the minor groups
-                minor_groups = self._parse_records_table(link, 2)
+                minor_groups = self._parse_records_table(minor_link, 2)
         
                 # Add the groups to the graph
                 for minor_group in minor_groups:
-                    minor_group_uri = HISCO['scheme-%s' % minor_group['code']]
+                    minor_group_uri = self._get_group_uri(minor_group['code'])
                     self.graph.add((minor_group_uri, RDF.type, SKOS['ConceptScheme']))
-                    self.graph.add((minor_group_uri, DCTERMS.title, Literal(minor_group['title'])))
+                    self.graph.add((minor_group_uri, RDFS.label, Literal(minor_group['title'])))
                     self.graph.add((minor_group_uri, DCTERMS.description, Literal(minor_group['description'])))
                     self.graph.add((major_group_uri, SKOS.related, minor_group_uri))
 
-        # Now move onto the rubri groups following the links
-        for minor_group in minor_groups:
-            minor_group_uri = HISCO['scheme-%s' % minor_group['code']]
-            for link in minor_group['links']:
-                log.info("Parse %s" % link)
-                
-                # Look for the minor groups
-                rubri_groups = self._parse_records_table(link, 3)
-                
-                # Add the groups to the graph
-                for rubri_group in rubri_groups:
-                    rubri_group_uri = HISCO['scheme-%s' % rubri_group['code']]
-                    self.graph.add((rubri_group_uri, RDF.type, SKOS['ConceptScheme']))
-                    self.graph.add((rubri_group_uri, DCTERMS.title, Literal(rubri_group['title'])))
-                    self.graph.add((rubri_group_uri, DCTERMS.description, Literal(rubri_group['description'])))
-                    self.graph.add((minor_group_uri, SKOS.related, rubri_group_uri))
+                    # Got one level deeper into the rubri
+                    for rubri_link in minor_group['links']:
+                        # Look for the minor groups
+                        rubri_groups = self._parse_records_table(rubri_link, 3)
+                        
+                        # Add the groups to the graph
+                        for rubri_group in rubri_groups:
+                            rubri_group_uri =  self._get_group_uri(rubri_group['code'])
+                            self.graph.add((rubri_group_uri, RDF.type, SKOS['ConceptScheme']))
+                            self.graph.add((rubri_group_uri, RDFS.label, Literal(rubri_group['title'])))
+                            self.graph.add((rubri_group_uri, DCTERMS.description, Literal(rubri_group['description'])))
+                            self.graph.add((minor_group_uri, SKOS.related, rubri_group_uri))
     
-        # Finally extract the micro, these are the actual HISCO codes
-        for rubri_group in rubri_groups:
-            rubri_group_uri = HISCO['scheme-%s' % rubri_group['code']]
-            for link in rubri_group['links']:
-                log.info("Parse %s" % link)
-                
-                # Look for the minor groups
-                micro_groups = self._parse_records_table(link, 5)
-                
-                # Add the groups to the graph
-                for micro_group in micro_groups:
-                    hisco_uri = self._get_hisco_uri(micro_group['code'])
-                    self.graph.add((hisco_uri, RDF.type, SKOS['Collection']))
-                    self.graph.add((hisco_uri, DCTERMS.title, Literal(micro_group['title'])))
-                    self.graph.add((hisco_uri, DCTERMS.description, Literal(micro_group['description'])))
-                    self.graph.add((rubri_group_uri, SKOS.related, hisco_uri))
+                            # And one deeper for the micro
+                            for micro_link in rubri_group['links']:
+                                # Look for the minor groups
+                                micro_groups = self._parse_records_table(micro_link, 5)
+                                
+                                # Add the groups to the graph
+                                for micro_group in micro_groups:
+                                    hisco_uri = self._get_hisco_uri(micro_group['code'])
+                                    self.graph.add((hisco_uri, RDF.type, SKOS['Collection']))
+                                    self.graph.add((hisco_uri, RDFS.label, Literal(micro_group['title'])))
+                                    self.graph.add((hisco_uri, DCTERMS.description, Literal(micro_group['description'])))
+                                    self.graph.add((rubri_group_uri, SKOS.related, hisco_uri))
                 
     def parse_occupational_titles(self):
         '''
@@ -183,7 +186,7 @@ class Hisco2RDF():
         next_page = OCCUPATIONAL_TITLES
         
         while next_page != None:
-            log.info("Parse %s" % next_page)
+            log.info("Parse titles %s" % next_page)
                 
             # Load the page
             doc = self.get_page(ROOT + next_page)
@@ -199,7 +202,6 @@ class Hisco2RDF():
                 language = LANG_MAP[cols[2].text]
                 hisco_code = cols[3].text.replace('*', '')
                 
-                # TODO : replace the occupation_index by the DB id found in the URL
                 # Get the DB index from details_page_link
                 m = re.search('know_id=([^&]*)&', details_page_link)
                 occupation_index = m.group(1)
@@ -217,21 +219,25 @@ class Hisco2RDF():
                 for details_row in details_table.find_all('tr'):
                     details_cols = details_row.find_all('td')
                     keyvalues[details_cols[0].text.strip()] = details_cols[-1]
-
+                    
+                # We already dealt with these two
+                del keyvalues['Hisco code']
+                del keyvalues['Occupational title']
+                
+                # TODO Country , use refArea
+                
+                # TODO Language
+                
                 # Do we know the gender ?
                 if 'Gender' in keyvalues:
-                    sex = SDMX_CODE['sex-U']
+                    sex = SDMX_CODE['sex-U'] # Also applies to "Male/Female"
                     if keyvalues['Gender'].text.strip() == 'Male':
                         sex = SDMX_CODE['sex-M'] 
                     elif keyvalues['Gender'].text.strip() == 'Female':
                         sex = SDMX_CODE['sex-F']
                     self.graph.add((resource, SDMX_DIMENSION['sex'], sex))
+                    del keyvalues['Gender']
                 
-                # Do we have a translation in English ?
-                if 'Translation' in keyvalues:
-                    trans = Literal(keyvalues['Translation'].text.strip().replace('´', "'"), lang='en')
-                    self.graph.add((resource, SKOS.altLabel, trans))
-                    
                 # Do we know the status ?
                 if 'Status' in keyvalues:
                     # Add the status
@@ -242,9 +248,24 @@ class Hisco2RDF():
                     if status_page not in parsed_status_page:
                         self._parse_status_page(status_page)
                         parsed_status_page.add(status_page)
-                    
-                # TODO Deal with the provenance
+                    del keyvalues['Status']
                 
+                # TODO Relation  
+                
+                # TODO Product
+                  
+                # TODO Provenance
+                
+                # Do we have a translation in English ?
+                if 'Translation' in keyvalues:
+                    trans = Literal(keyvalues['Translation'].text.strip().replace('´', "'"), lang='en')
+                    self.graph.add((resource, SKOS.altLabel, trans))
+                    del keyvalues['Translation']
+                
+                # Print whatever is left
+                #if len(keyvalues.keys()) != 0:
+                #    log.info(keyvalues.keys())
+                    
             # Look for the "next" link
             next_table = doc.find('table', class_='nextprev')
             next_page = None
@@ -256,7 +277,10 @@ class Hisco2RDF():
         '''
         Parses a status page such as http://historyofwork.iisg.nl/status.php?int02=32
         '''
-        log.info("Parse status %s" % url)
+        
+        # Work-around broken content
+        if url == 'status.php?int02=15':
+            return
         
         # Load the page
         doc = self.get_page(ROOT + url)
@@ -281,7 +305,7 @@ class Hisco2RDF():
         status_class = HISCO['Status']
         descr = doc.find('table', attrs={'width':'600'}).text.strip().split('\r\n')
         self.graph.add((status_class, RDF.type, RDFS.Class))
-        self.graph.add((status_class, RDFS.label, Literal(descr[0])))
+        self.graph.add((status_class, RDFS.label, Literal("Status code")))
         self.graph.add((status_class, DCTERMS.comment, Literal(descr[1])))
         
         # Describe the property
@@ -301,6 +325,11 @@ class Hisco2RDF():
         
         # Find the right table
         table = doc.find('table', attrs={'cellspacing':'8', 'cellpadding':'0'})
+        
+        # If we can't find the table return an empty list
+        # work around for http://historyofwork.iisg.nl/list_micro.php?keywords=920&keywords_qt=lstrict
+        if table == None:
+            return []
         
         # Look for the minor groups
         groups = []
@@ -325,6 +354,9 @@ class Hisco2RDF():
         
         return groups
             
+    def _get_group_uri(self, code):
+        return HISCO['group-%s' % code]
+    
     def _get_hisco_uri(self, code):
         return HISCO['hisco-%s' % code]
     
@@ -336,9 +368,9 @@ class Hisco2RDF():
             
 if __name__ == '__main__':
     hisco2rdf = Hisco2RDF()
-    # hisco2rdf.parse_hisco_tree()
+    hisco2rdf.parse_hisco_tree()
     hisco2rdf.parse_occupational_titles()
     # TODO parse images
     # TODO parse encyclopedia
-    hisco2rdf.get_output()
+    hisco2rdf.save_output()
 
