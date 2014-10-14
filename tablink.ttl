@@ -1,0 +1,34 @@
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix tablink:    <http://bit.ly/cedar-tablink#> .
+
+tablink:Cell rdfs:subClassOf rdf:Class;
+	rdfs:label "Cell";
+	rdfs:comment "A cell is a building block of spreadsheet content".
+	
+tablink:RowHeader rdfs:subClassOf tablink:Cell;
+	rdfs:label "Row header".
+
+tablink:ColumnHeader rdfs:subClassOf tablink:Cell;
+	rdfs:label "Column header".
+
+tablink:DataCell rdfs:subClassOf tablink:Cell;
+	rdfs:label "Data cell".
+
+tablink:value a rdf:Property;
+	rdfs:label "cell value";
+	rdfs:range rdfs:Literal;
+	rdfs:domain	tablink:Cell;
+	rdfs:comment "The value of the cell in the Excel file".
+	
+tablink:sheet a rdf:Property;
+	rdfs:label "The sheet the cell is associated with".
+	
+tablink:dimension a rdf:Property;
+	rdfs:label "A dimension attached to a cell".
+
+tablink:parentCell a rdf:Property;
+	rdfs:label "The parent cell of a cell".
+
