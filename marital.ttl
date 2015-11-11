@@ -9,7 +9,7 @@
 @prefix sdmx:    <http://purl.org/linked-data/sdmx#> .
 @prefix dcterms: <http://purl.org/dc/terms/>.
 @prefix qb:      <http://purl.org/linked-data/cube#> .
-@prefix cedar-maritalstatus: <http://bit.ly/cedar-maritalstatus#> .
+@prefix cedar-maritalstatus: <http://lod.cedar-project.nl/vocab/cedar-maritalstatus#> .
 
 cedar-maritalstatus:maritalStatus a qb:DimensionProperty, rdf:Property ;
 	rdfs:range cedar-maritalstatus:MaritalStatus;
